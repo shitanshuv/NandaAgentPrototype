@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NANDA Index — Architecture Overview</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+  :root {
+    --bg: #080b14;
+    --surface: #0f1520;
+    --card: #131b2e;
+    --border: #1e2d47;
+    --accent: #4f8ef7;
+    --accent2: #7c5ef7;
+    --green: #22d47e;
+    --yellow: #f5c842;
+    --red: #f25555;
+    --teal: #2dd4bf;
+    --text: #e8edf7;
+    --muted: #5a6a85;
+    --mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 40px 32px;
+  }
+
+  /* ── Header ── */
+  .page-header {
+    text-align: center;
+    margin-bottom: 52px;
+  }
+  .page-header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #4f8ef7 0%, #a78bfa 50%, #2dd4bf 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .page-header p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 8px;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 36px;
+  }
+  .tab {
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    border-color: var(--accent);
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+  }
+  .tab:hover:not(.active) { border-color: var(--border); color: var(--text); }
+
+  /* ── Diagram panel ── */
+  .diagram { display: none; }
+  .diagram.active { display: block; }
+
+  /* ── Flow diagram ── */
+  .flow-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px 32px 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .flow-wrap::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--teal));
+  }
+
+  .flow-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 32px;
+  }
+
+  /* ── Node row ── */
+  .node-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: center;
+    flex-wrap: nowrap;
+    margin-bottom: 16px;
+  }
+
+  .node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .node-box {
+    width: 130px;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 12px 14px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.3s;
+  }
+  .node-box:hover { border-color: var(--accent); }
+
+  .node-icon { font-size: 1.8rem; line-height: 1; margin-bottom: 6px; }
+  .node-name { font-size: 0.8rem; font-weight: 700; color: var(--text); }
+  .node-sub  { font-size: 0.68rem; color: var(--muted); margin-top: 3px; font-family: var(--mono); }
+
+  .node-badge {
+    position: absolute;
+    top: -10px; right: -10px;
+    padding: 2px 7px;
+    border-radius: 99px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .badge-blue   { background: rgba(79,142,247,0.2);  color: var(--accent);  border: 1px solid rgba(79,142,247,0.4); }
+  .badge-green  { background: rgba(34,212,126,0.2);  color: var(--green);   border: 1px solid rgba(34,212,126,0.4); }
+  .badge-yellow { background: rgba(245,200,66,0.2);  color: var(--yellow);  border: 1px solid rgba(245,200,66,0.4); }
+  .badge-teal   { background: rgba(45,212,191,0.2);  color: var(--teal);    border: 1px solid rgba(45,212,191,0.4); }
+
+  /* ── Arrows ── */
+  .arrow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 4px;
+    flex-shrink: 0;
+    min-width: 72px;
+  }
+  .arrow-line {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .arrow-shaft {
+    height: 2px;
+    width: 50px;
+    background: linear-gradient(90deg, var(--border), var(--accent));
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 8px solid var(--accent);
+  }
+  .arrow-label {
+    font-size: 0.62rem;
+    color: var(--accent);
+    font-family: var(--mono);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .arrow-wrap.enterprise .arrow-shaft { background: linear-gradient(90deg, var(--border), var(--yellow)); }
+  .arrow-wrap.enterprise .arrow-head  { border-left-color: var(--yellow); }
+  .arrow-wrap.enterprise .arrow-label { color: var(--yellow); }
+
+  .arrow-wrap.green .arrow-shaft { background: linear-gradient(90deg, var(--border), var(--green)); }
+  .arrow-wrap.green .arrow-head  { border-left-color: var(--green); }
+  .arrow-wrap.green .arrow-label { color: var(--green); }
+
+  /* ── Step annotations ── */
+  .step-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 28px;
+    flex-wrap: wrap;
+  }
+  .step-pill {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    flex: 1;
+    min-width: 200px;
+  }
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(79,142,247,0.15);
+    border: 1px solid rgba(79,142,247,0.4);
+    color: var(--accent);
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-num.ent { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.4); color: var(--yellow); }
+  .step-content {}
+  .step-title { font-size: 0.78rem; font-weight: 700; margin-bottom: 3px; }
+  .step-desc  { font-size: 0.71rem; color: var(--muted); line-height: 1.5; }
+  .step-code  { font-family: var(--mono); font-size: 0.68rem; color: var(--teal); margin-top: 4px; }
+
+  /* ── Properties grid ── */
+  .props-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .prop-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .prop-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .prop-card.blue::after   { background: var(--accent); }
+  .prop-card.green::after  { background: var(--green); }
+  .prop-card.yellow::after { background: var(--yellow); }
+  .prop-card.teal::after   { background: var(--teal); }
+  .prop-card.purple::after { background: var(--accent2); }
+
+  .prop-icon  { font-size: 1.5rem; margin-bottom: 10px; }
+  .prop-title { font-size: 0.82rem; font-weight: 700; margin-bottom: 5px; }
+  .prop-desc  { font-size: 0.72rem; color: var(--muted); line-height: 1.55; }
+  .prop-stat  { font-family: var(--mono); font-size: 0.78rem; margin-top: 8px; }
+  .prop-stat.blue   { color: var(--accent); }
+  .prop-stat.green  { color: var(--green); }
+  .prop-stat.yellow { color: var(--yellow); }
+  .prop-stat.teal   { color: var(--teal); }
+  .prop-stat.purple { color: var(--accent2); }
+
+  /* ── Comparison table ── */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  .compare-table th {
+    background: var(--card);
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+  .compare-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .compare-table .feature { font-weight: 600; color: var(--text); }
+  .compare-table .dns  { color: var(--red); }
+  .compare-table .nanda { color: var(--green); }
+  .compare-table .win { color: var(--green); }
+
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    margin-top: 28px;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  /* ── Registration types ── */
+  .reg-types {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .reg-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .reg-card.highlight { border-color: var(--yellow); background: rgba(245,200,66,0.04); }
+  .reg-tag {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    display: inline-block;
+  }
+  .tag-blue   { background: rgba(79,142,247,0.15);  color: var(--accent); }
+  .tag-yellow { background: rgba(245,200,66,0.15);  color: var(--yellow); }
+  .tag-teal   { background: rgba(45,212,191,0.15);  color: var(--teal); }
+  .reg-title  { font-size: 0.82rem; font-weight: 700; margin-bottom: 6px; }
+  .reg-desc   { font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+  .reg-impl   { font-size: 0.68rem; font-family: var(--mono); margin-top: 10px; }
+  .reg-impl.done   { color: var(--green); }
+  .reg-impl.scoped { color: var(--muted); }
+
+  .chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    margin: 2px;
+  }
+
+  /* ── Animated pulse on key nodes ── */
+  @keyframes glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(79,142,247,0); }
+    50%       { box-shadow: 0 0 16px 4px rgba(79,142,247,0.25); }
+  }
+  .node-box.pulse { animation: glow 2.5s ease-in-out infinite; }
+
+  @keyframes glow-yellow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245,200,66,0); }
+    50%       { box-shadow: 0 0 16px 4px rgba(245,200,66,0.25); }
+  }
+  .node-box.pulse-yellow { animation: glow-yellow 2.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>NANDA Index — Architecture Overview</h1>
+  <p>Beyond DNS: Verified agent discovery with sub-second revocation · Ed25519 · Two-tier resolution</p>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('native')">① Native Flow</div>
+  <div class="tab" onclick="showTab('enterprise')">② Enterprise Two-Hop</div>
+  <div class="tab" onclick="showTab('properties')">③ Key Properties</div>
+  <div class="tab" onclick="showTab('comparison')">④ vs DNS</div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 1: NANDA-NATIVE FLOW                                -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="diagram active" id="tab-native">
+  <div class="flow-wrap">
+    <div class="flow-title">nanda-native resolution · 5-step verified chain</div>
+
+    <div class="node-row">
+      <!-- Client -->
+      <div class="node">
+        <div class="node-box pulse">
+          <div class="node-icon">💻</div>
+          <div class="node-name">Client</div>
+          <div class="node-sub">your app</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">AgentName</div>
+      </div>
+
+      <!-- NANDA Index -->
+      <div class="node">
+        <div class="node-box pulse">
+          <span class="node-badge badge-blue">:8000</span>
+          <div class="node-icon">🗂️</div>
+          <div class="node-name">NANDA Index</div>
+          <div class="node-sub">lean index</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">AgentAddr + sig</div>
+      </div>
+
+      <!-- AgentFacts -->
+      <div class="node">
+        <div class="node-box pulse">
+          <span class="node-badge badge-green">:8001</span>
+          <div class="node-icon">📋</div>
+          <div class="node-name">Agent Host</div>
+          <div class="node-sub">AgentFacts</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap green">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">verified ✓</div>
+      </div>
+
+      <!-- Endpoint -->
+      <div class="node">
+        <div class="node-box">
+          <div class="node-icon">🔌</div>
+          <div class="node-name">Endpoint</div>
+          <div class="node-sub">ready to use</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step annotations -->
+    <div class="step-row">
+      <div class="step-pill">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">Index Lookup</div>
+          <div class="step-desc">Client queries NANDA Index with AgentName URN. Returns minimal AgentAddr record (~120 bytes).</div>
+          <div class="step-code">GET /resolve/urn:agent:nanda:TranslationAssistant</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Verify AgentAddr + Revocation</div>
+          <div class="step-desc">Ed25519 signature check on AgentAddr. Then checks /status/{id} — credential rejected if revoked.</div>
+          <div class="step-code">verify(registry_pubkey, payload, sig)</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">Fetch AgentFacts</div>
+          <div class="step-desc">Follow PrimaryFactsURL (or PrivateFactsURL). Full capability schema: skills, endpoints, auth, telemetry.</div>
+          <div class="step-code">GET /agents/translation/agent-facts</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Verify AgentFacts</div>
+          <div class="step-desc">Second Ed25519 check — agent's own key. Tampered capability data (e.g. inflated scores) is caught here.</div>
+          <div class="step-code">verify(agent_pubkey, facts, sig)</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Endpoint Ready</div>
+          <div class="step-desc">Verified endpoint URL returned. Static, rotating, or adaptive resolver. Total latency ~20–80ms.</div>
+          <div class="step-code">facts.endpoints.static[0].url</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TTL Cache callout -->
+  <div class="props-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 0;">
+    <div class="prop-card blue">
+      <div class="prop-icon">⚡</div>
+      <div class="prop-title">TTL Cache — 10,000× Index Load Reduction</div>
+      <div class="prop-desc">Client caches AgentAddr by TTL. Subsequent resolves within TTL skip the index entirely — zero network calls. The index only needs to be updated when routing truly changes.</div>
+      <div class="prop-stat blue">cache-demo: 2nd call = 0ms index latency</div>
+    </div>
+    <div class="prop-card green">
+      <div class="prop-icon">🔏</div>
+      <div class="prop-title">Two-Layer Ed25519 Signing</div>
+      <div class="prop-desc">Registry signs AgentAddr (proves index authenticity). Agent signs AgentFacts (proves metadata authenticity). Two independent trust anchors — compromise of one doesn't break the other.</div>
+      <div class="prop-stat green">Both verified on every resolution</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 2: ENTERPRISE TWO-HOP                               -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="diagram" id="tab-enterprise">
+  <div class="flow-wrap">
+    <div class="flow-title">enterprise-routed resolution · two-hop chain · 3 independent signatures</div>
+
+    <div class="node-row">
+      <!-- Client -->
+      <div class="node">
+        <div class="node-box pulse">
+          <div class="node-icon">💻</div>
+          <div class="node-name">Client</div>
+          <div class="node-sub">your app</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">AgentName</div>
+      </div>
+
+      <!-- NANDA Index -->
+      <div class="node">
+        <div class="node-box pulse">
+          <span class="node-badge badge-blue">:8000</span>
+          <div class="node-icon">🗂️</div>
+          <div class="node-name">NANDA Index</div>
+          <div class="node-sub">lean index</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap enterprise">
+        <div class="arrow-line">
+          <div class="arrow-shaft" style="background: linear-gradient(90deg: var(--border), var(--yellow))"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">enterprise-routed ↓</div>
+      </div>
+
+      <!-- Enterprise Registry -->
+      <div class="node">
+        <div class="node-box pulse-yellow" style="border-color: rgba(245,200,66,0.5);">
+          <span class="node-badge badge-yellow">:8002</span>
+          <div class="node-icon">🏢</div>
+          <div class="node-name">Enterprise Reg.</div>
+          <div class="node-sub">ACME Corp</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap enterprise">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">AgentAddr + sig₂</div>
+      </div>
+
+      <!-- AgentFacts -->
+      <div class="node">
+        <div class="node-box pulse">
+          <span class="node-badge badge-yellow">:8002</span>
+          <div class="node-icon">📋</div>
+          <div class="node-name">AgentFacts</div>
+          <div class="node-sub">enterprise host</div>
+        </div>
+      </div>
+
+      <div class="arrow-wrap green">
+        <div class="arrow-line">
+          <div class="arrow-shaft"></div>
+          <div class="arrow-head"></div>
+        </div>
+        <div class="arrow-label">verified ✓</div>
+      </div>
+
+      <!-- Endpoint -->
+      <div class="node">
+        <div class="node-box">
+          <div class="node-icon">🔌</div>
+          <div class="node-name">Endpoint</div>
+          <div class="node-sub">ready to use</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step annotations -->
+    <div class="step-row">
+      <div class="step-pill">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">NANDA Index Lookup</div>
+          <div class="step-desc">Returns AgentAddr with <code style="color:var(--yellow);font-size:0.68rem">registration_type: enterprise-routed</code> and <code style="color:var(--yellow);font-size:0.68rem">enterprise_registry_url</code>.</div>
+          <div class="step-code">AgentAddr.enterprise_registry_url → http://acme:8002/...</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num ent">2</div>
+        <div class="step-content">
+          <div class="step-title">Verify NANDA Sig (sig₁)</div>
+          <div class="step-desc">Standard registry Ed25519 verification. Confirms the enterprise pointer itself hasn't been tampered with.</div>
+          <div class="step-code">verify(nanda_pubkey, addr, sig₁) ✓</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num ent">2d</div>
+        <div class="step-content">
+          <div class="step-title">Enterprise Second Hop</div>
+          <div class="step-desc">Client queries the enterprise registry. Returns enterprise-signed AgentAddr with real facts URL. Enterprise never shares signing keys with NANDA.</div>
+          <div class="step-code">GET /enterprise/resolve/urn:agent:acme:SalesAgent</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num ent">2e</div>
+        <div class="step-content">
+          <div class="step-title">Verify Enterprise Sig (sig₂)</div>
+          <div class="step-desc">Second independent signature check using enterprise registry's own Ed25519 key. Two separate trust anchors.</div>
+          <div class="step-code">verify(enterprise_pubkey, addr, sig₂) ✓</div>
+        </div>
+      </div>
+      <div class="step-pill">
+        <div class="step-num">3–5</div>
+        <div class="step-content">
+          <div class="step-title">Facts + Agent Sig (sig₃)</div>
+          <div class="step-desc">Fetch AgentFacts from enterprise host. Third signature check — agent's own key. Three independent trust anchors total.</div>
+          <div class="step-code">verify(agent_pubkey, facts, sig₃) ✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Paper Table 1 — Registration Types</div>
+  <div class="reg-types">
+    <div class="reg-card">
+      <div class="reg-tag tag-blue">nanda-native</div>
+      <div class="reg-title">Direct Registration</div>
+      <div class="reg-desc">Agent registered directly in NANDA Index. Facts hosted by the agent itself or a public CDN.</div>
+      <div class="reg-impl done">✓ Implemented · TranslationAssistant, WeatherAgent</div>
+    </div>
+    <div class="reg-card highlight">
+      <div class="reg-tag tag-yellow">enterprise-routed ★</div>
+      <div class="reg-title">Enterprise Registry Hop</div>
+      <div class="reg-desc">NANDA Index stores a pointer to a private enterprise registry. Client does a second hop. Enterprise controls its own signing keys.</div>
+      <div class="reg-impl done">✓ Implemented · SalesAgent → ACME Corp registry</div>
+    </div>
+    <div class="reg-card">
+      <div class="reg-tag tag-teal">did-based</div>
+      <div class="reg-title">DID Identity</div>
+      <div class="reg-desc">Agent identity anchored to a Decentralized Identifier (DID). @DID:company:agent registration format.</div>
+      <div class="reg-impl scoped">— Scoped out (DID library scaffolding)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 3: KEY PROPERTIES                                   -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="diagram" id="tab-properties">
+  <div class="section-label">Core architectural properties demonstrated</div>
+  <div class="props-grid">
+    <div class="prop-card blue">
+      <div class="prop-icon">🔐</div>
+      <div class="prop-title">Ed25519 Two-Layer Signing</div>
+      <div class="prop-desc">Registry signs AgentAddr. Agent signs AgentFacts. Canonical JSON serialization (sort_keys) prevents field-reorder attacks. Any modification invalidates the signature immediately.</div>
+      <div class="prop-stat blue">--tamper flag injects false agent_id → caught</div>
+    </div>
+    <div class="prop-card yellow">
+      <div class="prop-icon">🚫</div>
+      <div class="prop-title">Sub-Second Revocation</div>
+      <div class="prop-desc">POST /revoke/{id} flips a single DB bit. Client checks GET /status/{id} after every AgentAddr verification. Revoked agents are rejected before facts are even fetched.</div>
+      <div class="prop-stat yellow">DNS TTL: hours. NANDA revocation: &lt;100ms</div>
+    </div>
+    <div class="prop-card green">
+      <div class="prop-icon">⚡</div>
+      <div class="prop-title">TTL-Based Caching</div>
+      <div class="prop-desc">Client caches AgentAddr by agent name. Cache respects TTL field from AgentAddr. Second resolve within TTL: zero index calls. This is the mechanism behind 10,000× write load reduction.</div>
+      <div class="prop-stat green">cache-demo: 1st=22ms → 2nd=0ms index latency</div>
+    </div>
+    <div class="prop-card teal">
+      <div class="prop-icon">🏗️</div>
+      <div class="prop-title">Two-Tier Decoupling</div>
+      <div class="prop-desc">AgentFacts update independently of the index via PATCH /agents/{slug}/agent-facts. Re-signed in-place. Endpoint rotations, score updates, capability changes — no index write required.</div>
+      <div class="prop-stat teal">Index stable · Facts layer live</div>
+    </div>
+    <div class="prop-card" style="--c: var(--accent2)">
+      <div class="prop-icon">🔒</div>
+      <div class="prop-title">Privacy-Preserving Path</div>
+      <div class="prop-desc">Dual URL model: PrimaryFactsURL (public) and PrivateFactsURL (selective access). In production, PrivateFactsURL would be hosted on IPFS/CDN. Same signed document, restricted distribution.</div>
+      <div class="prop-stat purple">--private flag switches resolution path</div>
+    </div>
+    <div class="prop-card" style="">
+      <div class="prop-icon">📐</div>
+      <div class="prop-title">JSON-LD / W3C VC Compatible</div>
+      <div class="prop-desc">AgentFacts carry @context and type: ["VerifiableCredential", "AgentFacts"]. Ed25519 proof block. Schema-compatible with W3C VC v2 — proof.type: Ed25519Signature2020 is the only remaining gap.</div>
+      <div class="prop-stat" style="color:var(--muted)">Full W3C VC: scoped out (fragmented lib ecosystem)</div>
+    </div>
+  </div>
+
+  <!-- Timing callout -->
+  <div class="section-label">Measured resolution latency (localhost)</div>
+  <div class="flow-wrap" style="padding: 24px 28px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px;">
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:var(--mono)">~8ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Index lookup</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);font-family:var(--mono)">&lt;3ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Ed25519 verify</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--green);font-family:var(--mono)">&lt;5ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Revocation check</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--teal);font-family:var(--mono)">~30ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">AgentFacts fetch</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--yellow);font-family:var(--mono)">~50–80ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Total (cold)</div>
+      </div>
+      <div style="text-align:center">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--green);font-family:var(--mono)">0ms</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Total (cached)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════ -->
+<!-- TAB 4: vs DNS                                           -->
+<!-- ════════════════════════════════════════════════════════ -->
+<div class="diagram" id="tab-comparison">
+  <div class="section-label">Why DNS isn't enough for AI agents</div>
+  <div class="flow-wrap" style="padding: 0; overflow: hidden;">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th style="width:22%">Property</th>
+          <th style="width:35%">DNS</th>
+          <th style="width:35%">NANDA Index</th>
+          <th style="width:8%">Winner</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="feature">What it resolves</td>
+          <td class="dns">Domain → IP address only</td>
+          <td class="nanda">AgentName → verified capabilities, auth methods, skills, endpoints, telemetry</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Payload size</td>
+          <td class="dns">~50 bytes (A record)</td>
+          <td class="nanda">AgentAddr ~120 bytes (lean index) + full AgentFacts on demand</td>
+          <td class="win">Both</td>
+        </tr>
+        <tr>
+          <td class="feature">Integrity verification</td>
+          <td class="dns">DNSSEC (optional, patchy adoption)</td>
+          <td class="nanda">Ed25519 on every response — mandatory, verified by client</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Revocation speed</td>
+          <td class="dns">TTL expiry: minutes to 24h+. No instant revocation.</td>
+          <td class="nanda">POST /revoke → sub-second. Client checks status on every resolution.</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Capability discovery</td>
+          <td class="dns">Not supported — requires separate service registry</td>
+          <td class="nanda">Built in: skills, modalities, auth, endpoints, SLAs, telemetry</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Metadata updates</td>
+          <td class="dns">Requires DNS record update + TTL wait</td>
+          <td class="nanda">PATCH AgentFacts in-place, re-signed, no index update needed</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Write load at scale</td>
+          <td class="dns">Every agent state change = DNS write</td>
+          <td class="nanda">TTL cache eliminates 99.99% of index reads. Index writes only on routing change.</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Privacy</td>
+          <td class="dns">All records public</td>
+          <td class="nanda">PrivateFactsURL: selective disclosure via separate access-controlled URL</td>
+          <td class="win">NANDA</td>
+        </tr>
+        <tr>
+          <td class="feature">Enterprise control</td>
+          <td class="dns">Delegated zones — enterprise loses visibility</td>
+          <td class="nanda">enterprise-routed type: enterprise registry with own keypair. NANDA holds a pointer only.</td>
+          <td class="win">NANDA</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section-label" style="margin-top:24px">Architecture tiers</div>
+  <div class="props-grid" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="prop-card blue">
+      <div class="prop-icon">🗂️</div>
+      <div class="prop-title">Tier 1 — Lean Index</div>
+      <div class="prop-desc">Registry stores only AgentAddr — routing pointer + crypto hash. Minimal write surface. High read availability. Signs every response.</div>
+      <div class="prop-stat blue">port :8000 · SQLite · Ed25519</div>
+    </div>
+    <div class="prop-card teal">
+      <div class="prop-icon">📋</div>
+      <div class="prop-title">Tier 2 — AgentFacts</div>
+      <div class="prop-desc">Full capability metadata. Agent-signed. Updated independently of the index. Supports primary + private URL paths. Live PATCH without index writes.</div>
+      <div class="prop-stat teal">port :8001 · JSON-LD · VC-compatible</div>
+    </div>
+    <div class="prop-card yellow">
+      <div class="prop-icon">🏢</div>
+      <div class="prop-title">Tier 2b — Enterprise Registry</div>
+      <div class="prop-desc">Optional second hop for enterprise-routed agents. Independent signing key. Enterprise controls access, visibility, and key rotation without touching NANDA.</div>
+      <div class="prop-stat yellow">port :8002 · independent keypair</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(name) {
+    document.querySelectorAll('.diagram').forEach(d => d.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>

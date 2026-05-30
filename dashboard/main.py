@@ -35,11 +35,16 @@ def _rewrite(url: str) -> str:
     )
 
 DASHBOARD_HTML = (Path(__file__).parent / "index.html").read_text()
+ARCH_HTML = (Path(__file__).parent / "architecture.html").read_text()
 
 
 @app.get("/", response_class=HTMLResponse)
 def index():
     return DASHBOARD_HTML
+
+@app.get("/architecture", response_class=HTMLResponse)
+def architecture():
+    return ARCH_HTML
 
 
 @app.get("/api/agents")
