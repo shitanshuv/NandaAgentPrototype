@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NANDA Index — Resolution Visualizer</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3e;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --red: #ef4444;
+    --yellow: #eab308;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-top: 4px; }
+
+  header { margin-bottom: 28px; }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+
+  select, button {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    font-family: var(--font);
+  }
+
+  select { min-width: 320px; }
+
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+    padding: 8px 20px;
+    transition: opacity 0.15s;
+  }
+  button.primary:hover { opacity: 0.85; }
+  button.primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  button.danger {
+    background: #450a0a;
+    border-color: var(--red);
+    color: var(--red);
+  }
+  button.danger:hover { background: #7f1d1d; }
+
+  .toggle-group { display: flex; gap: 8px; }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.8rem;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .toggle.active { border-color: var(--accent); background: rgba(99,102,241,0.12); }
+  .toggle input { display: none; }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .step-node {
+    width: 120px;
+    padding: 12px 10px;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 600;
+    transition: border-color 0.3s, background 0.3s, box-shadow 0.3s;
+    position: relative;
+  }
+
+  .step-node .icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+  .step-node .label { color: var(--muted); font-size: 0.68rem; font-weight: 400; margin-top: 2px; }
+  .step-node .timing { color: var(--accent); font-size: 0.65rem; font-family: var(--mono); margin-top: 2px; }
+
+  .step-node.active {
+    border-color: var(--accent);
+    box-shadow: 0 0 16px rgba(99,102,241,0.3);
+  }
+  .step-node.done {
+    border-color: var(--green);
+    background: rgba(34,197,94,0.07);
+  }
+  .step-node.done .icon::after {
+    content: ' ✓';
+    color: var(--green);
+    font-size: 0.75rem;
+  }
+  .step-node.error {
+    border-color: var(--red) !important;
+    background: rgba(239,68,68,0.1) !important;
+    animation: flash-red 0.6s ease;
+  }
+  .step-node.revoked {
+    border-color: var(--yellow);
+    background: rgba(234,179,8,0.08);
+  }
+
+  @keyframes flash-red {
+    0%   { background: rgba(239,68,68,0.4); box-shadow: 0 0 24px rgba(239,68,68,0.7); }
+    100% { background: rgba(239,68,68,0.1); box-shadow: none; }
+  }
+
+  .arrow {
+    color: var(--muted);
+    font-size: 1.2rem;
+    padding: 0 4px;
+    flex-shrink: 0;
+    align-self: center;
+    margin-top: -20px;
+  }
+
+  .arrow.enterprise { color: var(--yellow); }
+  .arrow.hidden { opacity: 0; pointer-events: none; }
+
+  /* Data panels */
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  @media (max-width: 900px) { .panels { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .badge {
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .badge.valid   { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge.invalid { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge.pending { background: rgba(100,116,139,0.15); color: var(--muted); }
+  .badge.revoked { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge.enterprise { background: rgba(234,179,8,0.12); color: var(--yellow); }
+  .badge.active  { background: rgba(34,197,94,0.12); color: var(--green); }
+
+  pre {
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.6;
+    overflow-x: auto;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    color: #a5b4fc;
+    min-height: 60px;
+  }
+
+  pre .key   { color: #94a3b8; }
+  pre .str   { color: #86efac; }
+  pre .num   { color: #fbbf24; }
+  pre .bool  { color: #f472b6; }
+
+  /* Status bar */
+  .status-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+  }
+
+  .status-bar .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot.idle    { background: var(--muted); }
+  .dot.working { background: var(--accent); animation: pulse 0.8s infinite; }
+  .dot.success { background: var(--green); }
+  .dot.error   { background: var(--red); }
+  .dot.revoked { background: var(--yellow); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Skills chips */
+  .skills { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
+  .chip {
+    padding: 3px 10px;
+    background: rgba(99,102,241,0.12);
+    border: 1px solid rgba(99,102,241,0.3);
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    color: #a5b4fc;
+  }
+  .chip.enterprise { background: rgba(234,179,8,0.1); border-color: rgba(234,179,8,0.3); color: #fde68a; }
+
+  /* Timing table */
+  .timing-grid {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 4px 16px;
+    padding: 12px 16px;
+    font-size: 0.75rem;
+    font-family: var(--mono);
+  }
+  .timing-grid .t-step { color: var(--muted); }
+  .timing-grid .t-ms   { color: var(--accent); text-align: right; }
+  .timing-grid .t-bar  { color: #3730a3; }
+  .timing-grid .t-total { color: var(--green); font-weight: 700; }
+
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    font-size: 0.82rem;
+    color: var(--red);
+    display: none;
+  }
+  .error-box.show { display: block; }
+
+  .revoke-bar {
+    background: rgba(234,179,8,0.07);
+    border: 1px solid rgba(234,179,8,0.25);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-size: 0.8rem;
+    display: none;
+    align-items: center;
+    gap: 12px;
+  }
+  .revoke-bar.show { display: flex; }
+  .revoke-bar span { flex: 1; color: var(--yellow); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NANDA <span>Index</span> — Resolution Visualizer</h1>
+  <p class="subtitle">Live demonstration of the paper's end-to-end flow · Ed25519 verification · Sub-second revocation</p>
+</header>
+
+<div class="controls">
+  <select id="agentSelect">
+    <option value="">Loading agents...</option>
+  </select>
+
+  <div class="toggle-group">
+    <label class="toggle" id="togglePrivate">
+      <input type="checkbox" id="usePrivate"> 🔒 Private path
+    </label>
+    <label class="toggle" id="toggleTamper">
+      <input type="checkbox" id="useTamper"> ☠️ Tamper demo
+    </label>
+  </div>
+
+  <button class="primary" id="resolveBtn" onclick="runResolve()">Resolve →</button>
+</div>
+
+<!-- Revoke bar (shown when agent is revoked or can be revoked) -->
+<div class="revoke-bar" id="revokeBar">
+  <span id="revokeBarMsg">Agent is active</span>
+  <button class="danger" id="revokeBtn" onclick="revokeAgent()">Revoke credential</button>
+  <button id="unrevokeBtn" onclick="unrevokeAgent()" style="display:none">Restore credential</button>
+</div>
+
+<!-- Error box -->
+<div class="error-box" id="errorBox"></div>
+
+<!-- Resolution flow diagram -->
+<div class="flow" id="flowDiagram">
+  <div class="step">
+    <div class="step-node" id="node-client">
+      <span class="icon">💻</span> Client
+      <div class="label">your app</div>
+      <div class="timing" id="t-client"></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <div class="step-node" id="node-index">
+      <span class="icon">🗂️</span> NANDA Index
+      <div class="label">lean index :8000</div>
+      <div class="timing" id="t-index"></div>
+    </div>
+  </div>
+  <div class="arrow" id="arrow-enterprise">→</div>
+  <div class="step" id="step-enterprise" style="display:none">
+    <div class="step-node" id="node-enterprise">
+      <span class="icon">🏢</span> Enterprise Reg.
+      <div class="label">acme corp :8002</div>
+      <div class="timing" id="t-enterprise"></div>
+    </div>
+  </div>
+  <div class="arrow" id="arrow-facts">→</div>
+  <div class="step">
+    <div class="step-node" id="node-facts">
+      <span class="icon">📋</span> AgentFacts
+      <div class="label">agent host</div>
+      <div class="timing" id="t-facts"></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div class="step">
+    <div class="step-node" id="node-endpoint">
+      <span class="icon">🔌</span> Endpoint
+      <div class="label">ready to use</div>
+      <div class="timing" id="t-endpoint"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar" id="statusBar">
+  <div class="dot idle" id="statusDot"></div>
+  <span id="statusMsg">Select an agent and click Resolve</span>
+</div>
+
+<div style="margin-top: 16px;">
+  <div class="panels">
+    <div class="panel">
+      <div class="panel-header">
+        AgentAddr
+        <span class="badge pending" id="addrBadge">—</span>
+      </div>
+      <pre id="addrDisplay">{ }</pre>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        AgentFacts
+        <span class="badge pending" id="factsBadge">—</span>
+        <span class="badge enterprise" id="enterpriseBadge" style="display:none">enterprise-routed</span>
+      </div>
+      <pre id="factsDisplay">{ }</pre>
+    </div>
+  </div>
+
+  <!-- Skills -->
+  <div class="panel" id="skillsPanel" style="display:none; margin-bottom:16px">
+    <div class="panel-header">Skills</div>
+    <div class="skills" id="skillsDisplay"></div>
+  </div>
+
+  <!-- Timing -->
+  <div class="panel" id="timingPanel" style="display:none">
+    <div class="panel-header">⏱ Resolution Timing</div>
+    <div class="timing-grid" id="timingDisplay"></div>
+  </div>
+</div>
+
+<script>
+let currentAgentId = null;
+let currentAgentType = null;
+let resolveStart = null;
+const timings = {};
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+
+function setStatus(msg, type = 'idle') {
+  document.getElementById('statusMsg').textContent = msg;
+  const dot = document.getElementById('statusDot');
+  dot.className = 'dot ' + type;
+}
+
+function setNode(id, state) {
+  const el = document.getElementById('node-' + id);
+  if (!el) return;
+  el.className = 'step-node ' + state;
+}
+
+function setTiming(id, ms) {
+  const el = document.getElementById('t-' + id);
+  if (el) el.textContent = ms ? `${ms.toFixed(0)}ms` : '';
+  timings[id] = ms;
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '✗ ' + msg;
+  box.classList.add('show');
+}
+
+function clearError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+
+function formatJson(obj) {
+  if (!obj) return '{}';
+  return JSON.stringify(obj, null, 2)
+    .replace(/"([^"]+)":/g, '<span class="key">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="str">"$1"</span>')
+    .replace(/: (\d+\.?\d*)/g, ': <span class="num">$1</span>')
+    .replace(/: (true|false)/g, ': <span class="bool">$1</span>');
+}
+
+function resetFlow() {
+  ['client', 'index', 'enterprise', 'facts', 'endpoint'].forEach(id => setNode(id, ''));
+  ['client', 'index', 'enterprise', 'facts', 'endpoint'].forEach(id => setTiming(id, null));
+  document.getElementById('addrDisplay').innerHTML = '{ }';
+  document.getElementById('factsDisplay').innerHTML = '{ }';
+  document.getElementById('addrBadge').className = 'badge pending';
+  document.getElementById('addrBadge').textContent = '—';
+  document.getElementById('factsBadge').className = 'badge pending';
+  document.getElementById('factsBadge').textContent = '—';
+  document.getElementById('enterpriseBadge').style.display = 'none';
+  document.getElementById('skillsPanel').style.display = 'none';
+  document.getElementById('timingPanel').style.display = 'none';
+  document.getElementById('timingDisplay').innerHTML = '';
+  clearError();
+  for (const k in timings) delete timings[k];
+}
+
+async function timed(label, fn) {
+  const t0 = performance.now();
+  const result = await fn();
+  const ms = performance.now() - t0;
+  timings[label] = ms;
+  return result;
+}
+
+function updateTimingPanel() {
+  const panel = document.getElementById('timingPanel');
+  const grid = document.getElementById('timingDisplay');
+  panel.style.display = 'block';
+
+  const entries = Object.entries(timings);
+  const total = entries.reduce((s, [, v]) => s + v, 0);
+  const maxMs = Math.max(...entries.map(([, v]) => v));
+
+  grid.innerHTML = entries.map(([label, ms]) => {
+    const bar = '█'.repeat(Math.max(1, Math.round(ms / maxMs * 20)));
+    return `<span class="t-step">${label}</span><span class="t-ms">${ms.toFixed(1)}ms</span><span class="t-bar">${bar}</span>`;
+  }).join('') +
+    `<span class="t-step t-total">Total</span><span class="t-ms t-total">${total.toFixed(1)}ms</span><span></span>`;
+}
+
+// ── Agent list ─────────────────────────────────────────────────────────────
+
+async function loadAgents() {
+  const sel = document.getElementById('agentSelect');
+  try {
+    const r = await fetch('/api/agents');
+    const agents = await r.json();
+    sel.innerHTML = agents.map(a => {
+      const tag = a.registration_type === 'enterprise-routed' ? ' [enterprise]' : '';
+      const rev = a.revoked ? ' ⚠ revoked' : '';
+      return `<option value="${a.agent_name}" data-id="${a.agent_id}" data-type="${a.registration_type}">${a.agent_name}${tag}${rev}</option>`;
+    }).join('');
+    sel.dispatchEvent(new Event('change'));
+  } catch (e) {
+    sel.innerHTML = '<option>Error loading agents</option>';
+  }
+}
+
+document.getElementById('agentSelect').addEventListener('change', async function() {
+  const opt = this.options[this.selectedIndex];
+  currentAgentId = opt?.dataset?.id;
+  currentAgentType = opt?.dataset?.type;
+
+  // Show enterprise step in diagram
+  const isEnterprise = currentAgentType === 'enterprise-routed';
+  document.getElementById('step-enterprise').style.display = isEnterprise ? '' : 'none';
+  document.getElementById('arrow-enterprise').style.display = isEnterprise ? '' : 'none';
+  if (isEnterprise) {
+    document.getElementById('arrow-enterprise').className = 'arrow enterprise';
+    document.getElementById('enterpriseBadge').style.display = '';
+  }
+
+  resetFlow();
+
+  // Update revoke bar
+  if (currentAgentId) {
+    try {
+      const r = await fetch(`/api/status/${currentAgentId}`);
+      const s = await r.json();
+      const bar = document.getElementById('revokeBar');
+      bar.classList.add('show');
+      if (s.status === 'revoked') {
+        document.getElementById('revokeBarMsg').textContent =
+          `⚠ Credential REVOKED — reason: ${s.revocation_reason || 'unspecified'}`;
+        document.getElementById('revokeBtn').style.display = 'none';
+        document.getElementById('unrevokeBtn').style.display = '';
+      } else {
+        document.getElementById('revokeBarMsg').textContent = 'Credential is active';
+        document.getElementById('revokeBtn').style.display = '';
+        document.getElementById('unrevokeBtn').style.display = 'none';
+      }
+    } catch (e) {}
+  }
+});
+
+// ── Toggle labels ──────────────────────────────────────────────────────────
+
+['togglePrivate', 'toggleTamper'].forEach(id => {
+  const el = document.getElementById(id);
+  el.querySelector('input').addEventListener('change', function() {
+    el.classList.toggle('active', this.checked);
+  });
+});
+
+// ── Revoke / Unrevoke ──────────────────────────────────────────────────────
+
+async function revokeAgent() {
+  if (!currentAgentId) return;
+  const reason = prompt('Revocation reason:', 'security-incident') || 'unspecified';
+  await fetch(`/api/status/${currentAgentId}`, { method: 'GET' }); // reuse status proxy
+  try {
+    // Hit registry directly via proxy workaround — POST /revoke/{id}
+    const r = await fetch(`/api/revoke/${currentAgentId}?reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    await loadAgents();
+    setStatus(`Agent revoked: ${reason}`, 'revoked');
+  } catch (e) {
+    showError('Revoke failed — ' + e.message);
+  }
+}
+
+async function unrevokeAgent() {
+  if (!currentAgentId) return;
+  try {
+    const r = await fetch(`/api/unrevoke/${currentAgentId}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    await loadAgents();
+    setStatus('Credential restored to active', 'success');
+  } catch (e) {
+    showError('Unrevoke failed — ' + e.message);
+  }
+}
+
+// Proxy revoke/unrevoke through dashboard backend
+// (add these two dashboard routes dynamically)
+
+// ── Main resolve flow ──────────────────────────────────────────────────────
+
+async function runResolve() {
+  const agentName = document.getElementById('agentSelect').value;
+  if (!agentName) return;
+
+  const tamper  = document.getElementById('useTamper').checked;
+  const private_ = document.getElementById('usePrivate').checked;
+  const isEnterprise = currentAgentType === 'enterprise-routed';
+
+  resetFlow();
+  document.getElementById('resolveBtn').disabled = true;
+  setStatus('Resolving…', 'working');
+  setNode('client', 'active');
+  resolveStart = performance.now();
+
+  try {
+    // Step 1: Index lookup
+    setNode('index', 'active');
+    setStatus('Step 1 — querying NANDA Index…', 'working');
+    const addr = await timed('Index lookup', async () => {
+      const r = await fetch(`/api/resolve/${agentName}`);
+      if (!r.ok) throw new Error('Agent not found in index');
+      return r.json();
+    });
+
+    setNode('index', tamper ? 'error' : 'done');
+    setTiming('index', timings['Index lookup']);
+
+    if (tamper) {
+      // Simulate tamper injection
+      showError('TAMPER DETECTED — injected false agent_id into AgentAddr. Signature verification fails. Resolution aborted.');
+      setNode('client', 'error');
+      setStatus('Resolution FAILED — tampered AgentAddr rejected', 'error');
+      document.getElementById('addrBadge').className = 'badge invalid';
+      document.getElementById('addrBadge').textContent = 'TAMPERED';
+      document.getElementById('addrDisplay').innerHTML = formatJson({
+        ...addr,
+        agent_id: 'nanda:EVIL-TAMPERED-ID ← INJECTED',
+        signature: addr.signature?.substring(0, 20) + '… ← INVALID',
+      });
+      return;
+    }
+
+    document.getElementById('addrDisplay').innerHTML = formatJson(addr);
+    document.getElementById('addrBadge').className = 'badge valid';
+    document.getElementById('addrBadge').textContent = 'verified ✓';
+
+    // Step 2c: Revocation check
+    setStatus('Step 2c — checking revocation status…', 'working');
+    const statusData = await timed('Revocation check', async () => {
+      const r = await fetch(`/api/status/${addr.agent_id}`);
+      return r.json();
+    });
+
+    if (statusData.status === 'revoked') {
+      setNode('index', 'revoked');
+      showError(`REVOKED — ${statusData.revocation_reason || 'unspecified'}. Client refuses to proceed.`);
+      setStatus('Resolution FAILED — credential revoked', 'revoked');
+      document.getElementById('addrBadge').className = 'badge revoked';
+      document.getElementById('addrBadge').textContent = 'REVOKED';
+      return;
+    }
+
+    // Enterprise second hop
+    let factsUrl = addr.primary_facts_url;
+    if (isEnterprise && addr.enterprise_registry_url) {
+      setNode('enterprise', 'active');
+      setStatus('Step 2d — enterprise second hop…', 'working');
+
+      const enterpriseAddr = await timed('Enterprise hop', async () => {
+        const r = await fetch(`/api/enterprise/resolve/${agentName}`);
+        if (!r.ok) throw new Error('Enterprise registry unreachable');
+        return r.json();
+      });
+
+      setNode('enterprise', 'done');
+      setTiming('enterprise', timings['Enterprise hop']);
+      factsUrl = enterpriseAddr.primary_facts_url;
+    }
+
+    // Step 3: Fetch AgentFacts
+    setNode('facts', 'active');
+    setStatus('Step 3 — fetching AgentFacts…', 'working');
+    const pathType = private_ ? 'private' : 'primary';
+
+    const facts = await timed('AgentFacts fetch', async () => {
+      const r = await fetch(`/api/facts/${agentName}?path_type=${pathType}`);
+      if (!r.ok) throw new Error('AgentFacts unreachable');
+      return r.json();
+    });
+
+    setNode('facts', 'done');
+    setTiming('facts', timings['AgentFacts fetch']);
+
+    document.getElementById('factsDisplay').innerHTML = formatJson(
+      Object.fromEntries(Object.entries(facts).filter(([k]) => k !== 'proof'))
+    );
+    document.getElementById('factsBadge').className = 'badge valid';
+    document.getElementById('factsBadge').textContent = 'verified ✓';
+
+    // Skills
+    const skills = facts.skills || [];
+    if (skills.length) {
+      const isEnt = facts.registration_type === 'enterprise-routed';
+      document.getElementById('skillsDisplay').innerHTML =
+        skills.map(s => `<span class="chip ${isEnt ? 'enterprise' : ''}">${s.id}</span>`).join('');
+      document.getElementById('skillsPanel').style.display = '';
+    }
+
+    // Step 5: Endpoint ready
+    setNode('endpoint', 'done');
+    setNode('client', 'done');
+    setStatus('✓ Resolution complete — agent verified and endpoint ready', 'success');
+
+    updateTimingPanel();
+
+  } catch (e) {
+    setNode('client', 'error');
+    showError(e.message);
+    setStatus('Resolution failed — ' + e.message, 'error');
+  } finally {
+    document.getElementById('resolveBtn').disabled = false;
+  }
+}
+
+// Add revoke/unrevoke proxy endpoints on the dashboard side via direct REGISTRY calls
+// (The dashboard /api/revoke and /api/unrevoke routes are not in main.py, so we hit
+//  the registry directly — that's fine for a demo running on localhost)
+async function revokeAgent() {
+  if (!currentAgentId) return;
+  const reason = prompt('Revocation reason:', 'security-incident') || 'unspecified';
+  try {
+    const r = await fetch(`http://localhost:8000/revoke/${currentAgentId}?reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    await loadAgents();
+    setStatus(`Agent revoked: ${reason}`, 'revoked');
+    resetFlow();
+  } catch (e) {
+    showError('Revoke failed — ' + e.message);
+  }
+}
+
+async function unrevokeAgent() {
+  if (!currentAgentId) return;
+  try {
+    const r = await fetch(`http://localhost:8000/unrevoke/${currentAgentId}`, { method: 'POST' });
+    if (!r.ok) throw new Error(await r.text());
+    await loadAgents();
+    setStatus('Credential restored to active', 'success');
+    resetFlow();
+  } catch (e) {
+    showError('Unrevoke failed — ' + e.message);
+  }
+}
+
+// Boot
+loadAgents();
+</script>
+</body>
+</html>

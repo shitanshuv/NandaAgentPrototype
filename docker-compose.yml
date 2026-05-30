@@ -1,0 +1,87 @@
+version: "3.9"
+
+# NANDA Index Prototype — zero-setup demo
+# Run: docker-compose up
+# All services start, agents are seeded automatically.
+#
+# Services:
+#   registry           → http://localhost:8000   (NANDA lean index + revocation)
+#   agent_host         → http://localhost:8001   (nanda-native AgentFacts)
+#   enterprise_registry→ http://localhost:8002   (enterprise-routed second hop)
+#   dashboard          → http://localhost:8080   (resolution visualizer)
+
+services:
+  registry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn registry.main:app --host 0.0.0.0 --port 8000 --log-level warning
+    ports:
+      - "8000:8000"
+    volumes:
+      - registry_data:/app/registry
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  agent_host:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn agent_host.main:app --host 0.0.0.0 --port 8001 --log-level warning
+    ports:
+      - "8001:8001"
+    volumes:
+      - agent_data:/app/agent_host
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  enterprise_registry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn enterprise_registry.main:app --host 0.0.0.0 --port 8002 --log-level warning
+    ports:
+      - "8002:8002"
+    volumes:
+      - enterprise_data:/app/enterprise_registry
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  seed:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python3 scripts/seed_agents.py
+    depends_on:
+      registry:
+        condition: service_healthy
+      agent_host:
+        condition: service_healthy
+      enterprise_registry:
+        condition: service_healthy
+    restart: "no"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn dashboard.main:app --host 0.0.0.0 --port 8080 --log-level warning
+    ports:
+      - "8080:8080"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+volumes:
+  registry_data:
+  agent_data:
+  enterprise_data:
