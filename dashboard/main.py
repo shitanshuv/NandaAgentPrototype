@@ -10,6 +10,7 @@ Supports:
   - tamper detection (red flash on tamper)
   - revocation status display
 """
+import os
 from pathlib import Path
 
 import uvicorn
@@ -21,9 +22,9 @@ import requests
 app = FastAPI(title="NANDA Dashboard")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-REGISTRY    = "http://localhost:8000"
-AGENT_HOST  = "http://localhost:8001"
-ENTERPRISE  = "http://localhost:8002"
+REGISTRY   = os.getenv("REGISTRY_URL",   "http://localhost:8000")
+AGENT_HOST = os.getenv("AGENT_HOST_URL", "http://localhost:8001")
+ENTERPRISE = os.getenv("ENTERPRISE_URL", "http://localhost:8002")
 
 DASHBOARD_HTML = (Path(__file__).parent / "index.html").read_text()
 
@@ -84,6 +85,24 @@ def facts(agent_name: str, path_type: str = "primary"):
 def enterprise_resolve(agent_name: str):
     try:
         r = requests.get(f"{ENTERPRISE}/enterprise/resolve/{agent_name}", timeout=3)
+        return JSONResponse(r.json(), status_code=r.status_code)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+
+
+@app.post("/api/revoke/{agent_id}")
+def revoke(agent_id: str, reason: str = "unspecified"):
+    try:
+        r = requests.post(f"{REGISTRY}/revoke/{agent_id}", params={"reason": reason}, timeout=3)
+        return JSONResponse(r.json(), status_code=r.status_code)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=503)
+
+
+@app.post("/api/unrevoke/{agent_id}")
+def unrevoke(agent_id: str):
+    try:
+        r = requests.post(f"{REGISTRY}/unrevoke/{agent_id}", timeout=3)
         return JSONResponse(r.json(), status_code=r.status_code)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=503)

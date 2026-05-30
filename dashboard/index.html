@@ -730,14 +730,11 @@ async function runResolve() {
   }
 }
 
-// Add revoke/unrevoke proxy endpoints on the dashboard side via direct REGISTRY calls
-// (The dashboard /api/revoke and /api/unrevoke routes are not in main.py, so we hit
-//  the registry directly — that's fine for a demo running on localhost)
 async function revokeAgent() {
   if (!currentAgentId) return;
   const reason = prompt('Revocation reason:', 'security-incident') || 'unspecified';
   try {
-    const r = await fetch(`http://localhost:8000/revoke/${currentAgentId}?reason=${encodeURIComponent(reason)}`, { method: 'POST' });
+    const r = await fetch(`/api/revoke/${currentAgentId}?reason=${encodeURIComponent(reason)}`, { method: 'POST' });
     if (!r.ok) throw new Error(await r.text());
     await loadAgents();
     setStatus(`Agent revoked: ${reason}`, 'revoked');
@@ -750,7 +747,7 @@ async function revokeAgent() {
 async function unrevokeAgent() {
   if (!currentAgentId) return;
   try {
-    const r = await fetch(`http://localhost:8000/unrevoke/${currentAgentId}`, { method: 'POST' });
+    const r = await fetch(`/api/unrevoke/${currentAgentId}`, { method: 'POST' });
     if (!r.ok) throw new Error(await r.text());
     await loadAgents();
     setStatus('Credential restored to active', 'success');

@@ -1,14 +1,10 @@
 version: "3.9"
 
 # NANDA Index Prototype — zero-setup demo
-# Run: docker-compose up
-# All services start, agents are seeded automatically.
+# Run: docker-compose up --build
 #
-# Services:
-#   registry           → http://localhost:8000   (NANDA lean index + revocation)
-#   agent_host         → http://localhost:8001   (nanda-native AgentFacts)
-#   enterprise_registry→ http://localhost:8002   (enterprise-routed second hop)
-#   dashboard          → http://localhost:8080   (resolution visualizer)
+# Services talk to each other by Docker service name (not localhost).
+# The same code works locally (defaults to localhost) via start.sh.
 
 services:
   registry:
@@ -24,7 +20,7 @@ services:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   agent_host:
     build:
@@ -39,7 +35,7 @@ services:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   enterprise_registry:
     build:
@@ -54,13 +50,18 @@ services:
       test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   seed:
     build:
       context: .
       dockerfile: Dockerfile
     command: python3 scripts/seed_agents.py
+    environment:
+      # Use Docker service names — containers can't reach each other via localhost
+      REGISTRY_URL:   http://registry:8000
+      AGENT_HOST_URL: http://agent_host:8001
+      ENTERPRISE_URL: http://enterprise_registry:8002
     depends_on:
       registry:
         condition: service_healthy
@@ -77,6 +78,10 @@ services:
     command: uvicorn dashboard.main:app --host 0.0.0.0 --port 8080 --log-level warning
     ports:
       - "8080:8080"
+    environment:
+      REGISTRY_URL:   http://registry:8000
+      AGENT_HOST_URL: http://agent_host:8001
+      ENTERPRISE_URL: http://enterprise_registry:8002
     depends_on:
       seed:
         condition: service_completed_successfully

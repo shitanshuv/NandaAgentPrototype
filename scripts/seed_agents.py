@@ -1,7 +1,11 @@
 """
 Seed script — registers demo agents in the NANDA Index.
 Run after all services are up (start.sh handles this automatically).
+
+Service URLs are read from environment variables so the same script works
+both locally (localhost) and inside Docker (service names as hostnames).
 """
+import os
 import sys
 import time
 from pathlib import Path
@@ -11,8 +15,11 @@ import requests
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from crypto_utils import generate_keypair
 
-REGISTRY = "http://localhost:8000"
-MAX_RETRIES = 10
+REGISTRY   = os.getenv("REGISTRY_URL",   "http://localhost:8000")
+AGENT_HOST = os.getenv("AGENT_HOST_URL", "http://localhost:8001")
+ENTERPRISE = os.getenv("ENTERPRISE_URL", "http://localhost:8002")
+
+MAX_RETRIES = 15
 
 
 def wait_for_registry():
@@ -50,27 +57,27 @@ def main():
     agents = [
         {
             "agent_name": "urn:agent:nanda:TranslationAssistant",
-            "primary_facts_url": "http://localhost:8001/agents/translation/agent-facts",
-            "private_facts_url": "http://localhost:8001/agents/translation/private-facts",
-            "adaptive_resolver_url": "http://localhost:8001/agents/translation/resolve",
+            "primary_facts_url": f"{AGENT_HOST}/agents/translation/agent-facts",
+            "private_facts_url": f"{AGENT_HOST}/agents/translation/private-facts",
+            "adaptive_resolver_url": f"{AGENT_HOST}/agents/translation/resolve",
             "ttl": 3600,
             "owner_pubkey": pub1,
             "registration_type": "nanda-native",
         },
         {
             "agent_name": "urn:agent:nanda:WeatherAgent",
-            "primary_facts_url": "http://localhost:8001/agents/weather/agent-facts",
-            "private_facts_url": "http://localhost:8001/agents/weather/private-facts",
+            "primary_facts_url": f"{AGENT_HOST}/agents/weather/agent-facts",
+            "private_facts_url": f"{AGENT_HOST}/agents/weather/private-facts",
             "ttl": 1800,
             "owner_pubkey": pub2,
             "registration_type": "nanda-native",
         },
         {
             # Enterprise-routed: NANDA Index holds a pointer to the enterprise registry.
-            # The client does a second hop to localhost:8002 for the real facts.
+            # The client does a second hop to the enterprise registry for the real facts.
             "agent_name": "urn:agent:acme:SalesAgent",
-            "primary_facts_url": "http://localhost:8002/enterprise/agents/sales/agent-facts",
-            "enterprise_registry_url": "http://localhost:8002/enterprise/resolve/urn:agent:acme:SalesAgent",
+            "primary_facts_url": f"{ENTERPRISE}/enterprise/agents/sales/agent-facts",
+            "enterprise_registry_url": f"{ENTERPRISE}/enterprise/resolve/urn:agent:acme:SalesAgent",
             "ttl": 1800,
             "owner_pubkey": pub3,
             "registration_type": "enterprise-routed",
