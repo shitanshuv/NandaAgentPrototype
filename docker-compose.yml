@@ -58,10 +58,11 @@ services:
       dockerfile: Dockerfile
     command: python3 scripts/seed_agents.py
     environment:
-      # Use Docker service names — containers can't reach each other via localhost
+      # Registry URL uses Docker service name (seed runs inside Docker)
+      # Facts URLs use localhost so the host-side CLI client can reach them
       REGISTRY_URL:   http://registry:8000
-      AGENT_HOST_URL: http://agent_host:8001
-      ENTERPRISE_URL: http://enterprise_registry:8002
+      AGENT_HOST_URL: http://localhost:8001
+      ENTERPRISE_URL: http://localhost:8002
     depends_on:
       registry:
         condition: service_healthy
