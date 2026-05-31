@@ -97,6 +97,15 @@ Toggle "Tamper demo" to see nodes flash red on signature failure.
 Toggle "Private path" for the PrivateFactsURL flow.  
 Click "Revoke credential" to demo sub-second revocation in the UI.
 
+**Architecture diagram:** Open `http://localhost:8080/architecture` — four-tab interactive visual overview of the full system. Good starting point for walkthroughs and recordings.
+
+| Tab | Content |
+|---|---|
+| **① Native Flow** | 5-step nanda-native chain with annotated steps and cache/signing callouts |
+| **② Enterprise Two-Hop** | Full 3-signature chain diagram + Paper Table 1 registration types |
+| **③ Key Properties** | Revocation, TTL cache, two-tier decoupling, measured timing numbers |
+| **④ vs DNS** | Side-by-side comparison across 9 dimensions + tier architecture breakdown |
+
 **Tests:**
 ```bash
 pytest tests/test_nanda.py -v
