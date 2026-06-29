@@ -129,8 +129,9 @@ REGISTRY_PUBLIC_KEY_B64: Optional[str] = None
 async def lifespan(app: FastAPI):
     global REGISTRY_PRIVATE_KEY, REGISTRY_PUBLIC_KEY_B64
     init_db()
-    REGISTRY_PRIVATE_KEY, REGISTRY_PUBLIC_KEY_B64 = _load_or_create_keys()
-    print(f"[Registry] Public key: {REGISTRY_PUBLIC_KEY_B64[:32]}...")
+    priv, pub = _load_or_create_keys()
+    REGISTRY_PRIVATE_KEY, REGISTRY_PUBLIC_KEY_B64 = priv, pub
+    print(f"[Registry] Public key: {pub[:32]}...")
     yield
 
 app = FastAPI(title="NANDA Index Registry", version="0.2.0", lifespan=lifespan)
