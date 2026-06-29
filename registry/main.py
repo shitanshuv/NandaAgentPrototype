@@ -1,6 +1,9 @@
 """
 NANDA Registry Service — The Lean Index
 ========================================
+What it does: This is the DNS-replacement. 
+It stores the minimal routing record per agent (≤120 bytes per the paper) and signs every lookup response with the registry's own key.
+
 Implements the index tier of the NANDA architecture:
   - Maintains a minimal AgentAddr record per agent (≤120 bytes of routing data)
   - Signs every AgentAddr response with the registry's Ed25519 key
@@ -13,6 +16,15 @@ Enhanced:
   - registration_type field supports: nanda-native | enterprise-routed | did-based
 
 Paper reference: Section IV — The Lean Index
+
+What breaks first at scale:
+1.	SQLite write lock — SQLite permits only one writer, so trillion-scale registration writes would serialize and quickly bottleneck, exposing the prototypes biggest scale gap.
+2.	Per-request signing — Signing every /resolve call wastes CPU at high QPS; server-side caching of signed AgentAddr until TTL expiry would better match the papers cacheable design.
+3.	No sharding — The paper calls for 10k updates/sec per index shard, but this prototype uses one SQLite shard with no namespace partitioning.
+
+Where to add a feature: 
+Add enterprise-routed registration here with a new registration_type; resolve_agent would return an EnterpriseRegistry redirect instead of AgentAddr for enterprise-routed records.
+
 """
 import json
 import sqlite3

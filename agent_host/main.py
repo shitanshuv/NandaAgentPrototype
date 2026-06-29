@@ -4,6 +4,13 @@ NANDA Agent Host Service — AgentFacts Tier
 Hosts signed AgentFacts JSON-LD documents for demo agents.
 Each agent has its own Ed25519 keypair; AgentFacts are self-signed.
 
+What it does: Serves the rich, dynamic metadata (capabilities, skills, endpoints, evaluations) for each agent, 
+signed with that agent's own key — not the registry's key. 
+
+This is the critical separation: the registry vouches for "this agent exists and here's where to find its facts," 
+the agent vouches for "these are my actual capabilities."
+
+
 Exposes:
   GET   /agents/{slug}/agent-facts    → signed AgentFacts (PrimaryFactsURL)
   GET   /agents/{slug}/private-facts  → same document via "private" path
@@ -16,6 +23,21 @@ facts can be updated (new endpoint URLs, revised performance scores, capability 
 without touching the NANDA Index at all — clients re-fetch on TTL expiry.
 
 Paper reference: Section V — AgentFacts Schema and Resolution Mechanism
+
+What breaks first at scale:
+
+No persistence — facts are regenerated from a Python function on every request. 
+This is fine for two agents; with thousands of agents you'd need a real store (the paper suggests IPFS/CDN per-agent hosting, 
+which is more realistic — each agent hosts its own facts, the index just points to them).
+
+Single process holds all agent keys — in production every agent would run as its own service with its own key custody. 
+Here, one process holds both agents' private keys in agent_host/agent_keys/*.json. 
+That's a single point of compromise for every agent's identity.
+
+No TTL-based regeneration — the paper specifies rotating endpoints (TTL 5-15 min). 
+Right now the endpoint list is static in the builder function; it doesn't actually rotate.
+
+
 """
 import json
 import time

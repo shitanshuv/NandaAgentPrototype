@@ -1,6 +1,9 @@
 """
 NANDA Client Resolver
 =====================
+What it does: This is the consumer side of the whole system. 
+It's the only file that ties registry + agent_host together and proves the security properties actually work end-to-end.
+
 Full resolution flow with:
   - TTL-based in-memory cache (demonstrates the 10,000x index write reduction)
   - Per-step timing output (makes "sub-second resolution" claim tangible)
@@ -28,6 +31,23 @@ Usage:
   python client/resolver.py resolve "urn:agent:nanda:TranslationAssistant" --cache-demo
   python client/resolver.py revoke <agent_id>
   python client/resolver.py list
+
+What breaks first at scale:
+1.	No connection pooling or caching — Each resolve() call makes new HTTP requests to both services. 
+    At scale, clients should cache AgentAddr until expires_at and refresh AgentFacts only when its TTL expires.
+
+2.	Synchronous and single-threaded — Resolving N agents requires N sequential round trips. 
+    Fleets needing parallel resolution should use asyncio with httpx.AsyncClient and batched requests.
+
+3.	No retry or backoff — One failed request fails the full resolution. 
+    Production needs circuit breakers to handle DDoS-driven endpoint churn, as emphasized in the paper.
+
+Where to add a feature: 
+Add TTL-aware caching here by wrapping resolve_agent_addr with an in-memory dict keyed by agent_name 
+and checking expires_at before any network call. This is the most paper-aligned improvement 
+because NANDA core claim over DNS is reducing index reads and writes through caching.
+
+
 """
 import argparse
 import json
