@@ -2,6 +2,16 @@
 Shared cryptographic utilities for NANDA prototype.
 Uses Ed25519 (RFC 8032) via the `cryptography` library.
 Never roll your own crypto — this wraps established primitives only.
+
+What breaks first at scale:
+Nothing here breaks under load: Ed25519 verifies at ~50,000 ops/sec on commodity hardware.
+The real risk is key management: each agent and the registry store private keys in JSON files on disk.
+At scale, we'd need an HSM or KMS; a leaked key lets attackers forge AgentFacts or AgentAddr records until rotation.
+
+Where to add a feature: 
+To support W3C Verifiable Credentials, replace sign_payload/verify_payload with VC library calls.
+The rest of the code only depends on verify_payload() returning a bool, which is why signature handling is isolated here.
+
 """
 import base64
 import json
