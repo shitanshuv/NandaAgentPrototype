@@ -8,6 +8,15 @@ revocation, and AgentFacts PATCH.
 
 Run:  pytest tests/test_nanda.py -v
 Pre-requisite: all services up and seeded (run start.sh first).
+What it does: conftest.py's services() fixture is the critial pre-req — 
+it spins up both FastAPI services as subprocesses, waits for health checks, seeds the two agents,
+and tears everything down after the session. 
+Without it, the 29 tests would need manually running services first
+
+What breaks first at scale: 
+Nothing breaks at scale, but the test design relies on live services instead of isolated units. 
+That proves end-to-end behavior, but makes tests slower and flakier than pure unit tests. A stronger test pyramid would add isolated crypto_utils.py unit tests alongside these integration tests.
+
 """
 import time
 import pytest
@@ -393,11 +402,11 @@ class TestPrivacyPath:
         r = requests.get(translation_addr["private_facts_url"])
         assert r.status_code == 200
 
-    def test_private_facts_same_identity(self, translation_addr, translation_facts):
-        r = requests.get(translation_addr["private_facts_url"])
-        private = r.json()
-        assert private["agent_name"] == translation_facts["agent_name"]
-        assert private["version"] == translation_facts["version"]
+    def test_private_facts_same_identity(self, translation_addr):
+        primary = requests.get(translation_addr["primary_facts_url"]).json()
+        private = requests.get(translation_addr["private_facts_url"]).json()
+        assert private["agent_name"] == primary["agent_name"]
+        assert private["version"] == primary["version"]
 
 
 # ---------------------------------------------------------------------------
