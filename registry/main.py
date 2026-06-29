@@ -39,8 +39,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import sys
+from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from crypto_utils import generate_keypair, sign_payload, serialize_private_key, load_private_key
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 KEYS_FILE = Path(__file__).parent / "registry_keys.json"
 
@@ -120,8 +122,8 @@ class AgentAddr(BaseModel):
     signature: str
 
 
-REGISTRY_PRIVATE_KEY = None
-REGISTRY_PUBLIC_KEY_B64 = None
+REGISTRY_PRIVATE_KEY: Optional[Ed25519PrivateKey] = None
+REGISTRY_PUBLIC_KEY_B64: Optional[str] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -187,6 +189,7 @@ def resolve_agent(agent_name: str):
         "expires_at": now + row["ttl"],
         "registration_type": row["registration_type"],
     }
+    assert REGISTRY_PRIVATE_KEY is not None, "Registry key not initialized"
     signature = sign_payload(REGISTRY_PRIVATE_KEY, payload)
     return AgentAddr(**payload, signature=signature)
 
