@@ -149,6 +149,43 @@ Resolution timing:
 ### AgentFacts live update (PATCH)
 `PATCH /agents/{slug}/agent-facts` re-signs updated facts without touching the NANDA Index. Endpoint rotations, score updates, and capability changes propagate purely in the AgentFacts tier — the two-tier decoupling in practice.
 
+### Capability-based search
+Agents declare a capability list at registration time. The index stores a snapshot — no live fan-out to AgentFacts hosts:
+
+```
+GET /agents?capability=translation          → agents with "translation" in their capability list
+GET /agents?capability=weather
+GET /agents?registration_type=enterprise-routed
+```
+
+**Design tradeoff (O(1) vs O(N)):** The index answers capability queries from its local snapshot in a single DB query — O(1) regardless of how many agents are registered. The alternative (querying every AgentFacts host on each search) would be O(N) fan-out, defeating the lean-index principle (paper Section IV). The tradeoff is that snapshots can drift if an agent's facts change. The `PATCH /agents/{agent_name}/capabilities` endpoint exists to push updates:
+
+```
+PATCH /agents/urn:agent:nanda:WeatherAgent/capabilities
+Body: ["weather","forecast","alerts","json","calendar"]
+```
+
+**Demo (PowerShell):**
+```powershell
+# Search by capability
+Invoke-RestMethod "http://localhost:8000/agents?capability=translation"
+Invoke-RestMethod "http://localhost:8000/agents?capability=weather"
+Invoke-RestMethod "http://localhost:8000/agents?registration_type=enterprise-routed"
+
+# Update cached capabilities
+Invoke-RestMethod -Method PATCH `
+  -Uri "http://localhost:8000/agents/urn:agent:nanda:WeatherAgent/capabilities" `
+  -ContentType "application/json" `
+  -Body '["weather","forecast","alerts","json","calendar"]'
+```
+
+**Seeded capabilities:**
+| Agent | Capabilities |
+|---|---|
+| `urn:agent:nanda:TranslationAssistant` | `translation`, `language-detection`, `text`, `audio` |
+| `urn:agent:nanda:WeatherAgent` | `weather`, `forecast`, `alerts`, `json` |
+| `urn:agent:acme:SalesAgent` | `lead-qualification`, `pipeline-analytics`, `crm-sync`, `json` |
+
 ---
 
 ## Cryptography design choices
