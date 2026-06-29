@@ -50,6 +50,7 @@ because NANDA core claim over DNS is reducing index reads and writes through cac
 
 """
 import argparse
+import io
 import json
 import sys
 import time
@@ -57,9 +58,9 @@ from pathlib import Path
 from typing import Optional
 
 # Force UTF-8 output on Windows (default is CP1252 which can't print arrows/checkmarks)
-if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+if isinstance(sys.stdout, io.TextIOWrapper) and sys.stdout.encoding.lower() != "utf-8":
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-if sys.stderr.encoding and sys.stderr.encoding.lower() != "utf-8":
+if isinstance(sys.stderr, io.TextIOWrapper) and sys.stderr.encoding.lower() != "utf-8":
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 import requests
@@ -93,7 +94,7 @@ def dim(msg):    print(f"  {DIM}{msg}{RESET}")
 
 _cache: dict[str, tuple[float, dict]] = {}  # agent_name -> (fetched_at, agent_addr)
 
-def _cache_get(agent_name: str) -> Optional[dict]:
+def _cache_get(agent_name: str) -> Optional[tuple[dict, float]]:
     if agent_name not in _cache:
         return None
     fetched_at, cached = _cache[agent_name]
