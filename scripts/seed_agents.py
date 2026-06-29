@@ -63,6 +63,7 @@ def main():
             "ttl": 3600,
             "owner_pubkey": pub1,
             "registration_type": "nanda-native",
+            "capabilities": ["translation", "language-detection", "text", "audio"],
         },
         {
             "agent_name": "urn:agent:nanda:WeatherAgent",
@@ -71,16 +72,16 @@ def main():
             "ttl": 1800,
             "owner_pubkey": pub2,
             "registration_type": "nanda-native",
+            "capabilities": ["weather", "forecast", "alerts", "json"],
         },
         {
-            # Enterprise-routed: NANDA Index holds a pointer to the enterprise registry.
-            # The client does a second hop to the enterprise registry for the real facts.
             "agent_name": "urn:agent:acme:SalesAgent",
             "primary_facts_url": f"{ENTERPRISE}/enterprise/agents/sales/agent-facts",
             "enterprise_registry_url": f"{ENTERPRISE}/enterprise/resolve/urn:agent:acme:SalesAgent",
             "ttl": 1800,
             "owner_pubkey": pub3,
             "registration_type": "enterprise-routed",
+            "capabilities": ["lead-qualification", "pipeline-analytics", "crm-sync", "json"],
         },
     ]
 
