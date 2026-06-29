@@ -73,6 +73,7 @@ def init_db():
             ("revoked_at", "INTEGER"),
             ("revocation_reason", "TEXT"),
             ("enterprise_registry_url", "TEXT"),
+            ("capabilities", "TEXT DEFAULT '[]'"),
         ]:
             try:
                 conn.execute(f"ALTER TABLE agents ADD COLUMN {col} {typedef}")
@@ -90,6 +91,7 @@ class RegistrationRequest(BaseModel):
     ttl: int = 3600
     owner_pubkey: str
     registration_type: str = "nanda-native"
+    capabilities: list[str] = []
 
 
 class AgentAddr(BaseModel):
@@ -136,12 +138,13 @@ def register_agent(req: RegistrationRequest):
                 INSERT INTO agents
                   (agent_id, agent_name, primary_facts_url, private_facts_url,
                    adaptive_resolver_url, enterprise_registry_url,
-                   ttl, owner_pubkey, registration_type, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
+                   ttl, owner_pubkey, registration_type, capabilities, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)
             """, (agent_id, req.agent_name, req.primary_facts_url,
                   req.private_facts_url, req.adaptive_resolver_url,
                   req.enterprise_registry_url,
-                  req.ttl, req.owner_pubkey, req.registration_type, now))
+                  req.ttl, req.owner_pubkey, req.registration_type,
+                  json.dumps(req.capabilities), now))
             conn.commit()
     except sqlite3.IntegrityError:
         raise HTTPException(status_code=409, detail=f"Agent '{req.agent_name}' already registered")
@@ -177,12 +180,53 @@ def resolve_agent(agent_name: str):
 
 
 @app.get("/agents")
-def list_agents():
+def list_agents(capability: str | None = None, registration_type: str | None = None):
+    """
+    GET /agents                            → all agents
+    GET /agents?capability=translation     → agents whose cached capability list includes 'translation'
+    GET /agents?registration_type=nanda-native
+
+    Design note: `capabilities` is a snapshot stored at registration time (O(1) DB query).
+    It is NOT re-derived from live AgentFacts on each request — that would require an O(N)
+    fan-out to every agent host, defeating the lean-index principle (paper Section IV).
+    Agents should PATCH their capability list when AgentFacts change to keep them in sync.
+    """
+    query = "SELECT agent_name, agent_id, registration_type, capabilities, revoked, created_at FROM agents"
+    params = []
+    if registration_type:
+        query += " WHERE registration_type = ?"
+        params.append(registration_type)
+
     with get_db() as conn:
-        rows = conn.execute(
-            "SELECT agent_name, agent_id, registration_type, revoked, created_at FROM agents"
-        ).fetchall()
-    return [dict(r) for r in rows]
+        rows = conn.execute(query, params).fetchall()
+
+    results = []
+    for r in rows:
+        caps = json.loads(r["capabilities"]) if r["capabilities"] else []
+        if capability and capability not in caps:
+            continue
+        d = dict(r)
+        d["capabilities"] = caps
+        results.append(d)
+    return results
+
+
+@app.patch("/agents/{agent_name:path}/capabilities")
+def update_capabilities(agent_name: str, capabilities: list[str]):
+    """
+    Update the cached capability list for an agent without re-registering.
+    Call this whenever AgentFacts capabilities change to keep search results fresh.
+    """
+    with get_db() as conn:
+        row = conn.execute("SELECT agent_id FROM agents WHERE agent_name = ?", (agent_name,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail=f"Agent '{agent_name}' not found")
+        conn.execute(
+            "UPDATE agents SET capabilities = ? WHERE agent_name = ?",
+            (json.dumps(capabilities), agent_name)
+        )
+        conn.commit()
+    return {"agent_name": agent_name, "capabilities": capabilities, "status": "updated"}
 
 
 # ---------------------------------------------------------------------------
